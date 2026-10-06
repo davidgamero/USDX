@@ -204,7 +204,7 @@ test-song-refresh: build
 	  -o$(USDX_BUILD_DIR)/test_song_refresh$(EXEEXT) $(top_srcdir)/test/test_song_refresh.pas
 	@fixture_dir=$$(mktemp -d "$${TMPDIR:-/tmp}/usdx-song-refresh.XXXXXX") || exit 1; \
 	  trap 'rm -rf "$$fixture_dir"' EXIT; \
-	  $(USDX_BUILD_DIR)/test_song_refresh$(EXEEXT) "$$fixture_dir"
+	  USDX_INSTRUMENTAL_QUEUE="$$fixture_dir/queue" $(USDX_BUILD_DIR)/test_song_refresh$(EXEEXT) "$$fixture_dir"
 
 # One shot debug build (always rebuild)
 # Note: we cannot set PFLAGS and call build directly, 

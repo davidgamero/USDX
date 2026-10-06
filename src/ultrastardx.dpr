@@ -69,6 +69,7 @@ uses
   //new work on current OpenGL implementation
   dglOpenGL              in 'lib\dglOpenGL\dglOpenGL.pas',
   UMediaCore_SDL         in 'media\UMediaCore_SDL.pas',
+  UInstrumental          in 'base\UInstrumental.pas',
 
   freetype               in 'lib\freetype\freetype.pas',
 

@@ -1930,6 +1930,7 @@ begin
 
   //Required Information
   Audio    := PATH_NONE;
+  Karaoke  := PATH_NONE;
   Vocals   := PATH_NONE;
   BPM := 0;
 

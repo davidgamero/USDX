@@ -48,6 +48,9 @@ type
     private
       CurMenu: byte; // num of the cur. shown menu
       ID:       String; //for help-system
+      LastInstrumentalUpdate: cardinal;
+      procedure UpdateInstrumentalButton;
+      procedure HandleInstrumental;
     public
       Visible: boolean; // whether the menu should be drawn
 
@@ -96,6 +99,7 @@ implementation
 
 uses
   UDatabase,
+  UInstrumental,
   UGraphic,
   UHelp,
   ULanguage,
@@ -301,8 +305,71 @@ end;
 
 function TScreenSongMenu.Draw: boolean;
 begin
+  if (SDL_GetTicks - LastInstrumentalUpdate >= 1000) then
+    UpdateInstrumentalButton;
   Renderer.ClearFrameBuffer(CLEAR_DEPTH);
   Result := inherited Draw;
+end;
+
+procedure TScreenSongMenu.UpdateInstrumentalButton;
+var
+  ButtonIndex: integer;
+  ErrorText, Caption: UTF8String;
+  State: TInstrumentalState;
+begin
+  LastInstrumentalUpdate := SDL_GetTicks;
+  if CurMenu = SM_Main then
+    ButtonIndex := 2
+  else if CurMenu = SM_PlayList then
+    ButtonIndex := 4
+  else
+    Exit;
+  if (ScreenSong.Interaction < 0) or (ScreenSong.Interaction > High(CatSongs.Song)) then
+    Exit;
+  Button[ButtonIndex].Visible := not CatSongs.Song[ScreenSong.Interaction].Main;
+  State := InstrumentalState(CatSongs.Song[ScreenSong.Interaction], ErrorText);
+  case State of
+    isQueued: Caption := 'INSTRUMENTAL_QUEUED';
+    isProcessing: Caption := 'INSTRUMENTAL_PROCESSING';
+    isFailed: Caption := 'INSTRUMENTAL_RETRY';
+    isReady:
+      if Ini.VocalsVolume = 0 then
+        Caption := 'INSTRUMENTAL_USE_ORIGINAL'
+      else
+        Caption := 'INSTRUMENTAL_USE';
+    else Caption := 'INSTRUMENTAL_MAKE';
+  end;
+  Button[ButtonIndex].Text[0].Text := Language.Translate(Caption);
+end;
+
+procedure TScreenSongMenu.HandleInstrumental;
+var
+  Song: TSong;
+  ErrorText: UTF8String;
+  State: TInstrumentalState;
+begin
+  if (ScreenSong.Interaction < 0) or (ScreenSong.Interaction > High(CatSongs.Song)) then
+    Exit;
+  Song := CatSongs.Song[ScreenSong.Interaction];
+  State := InstrumentalState(Song, ErrorText);
+  if State = isReady then
+  begin
+    if Ini.VocalsVolume = 0 then
+      Ini.VocalsVolume := 100
+    else
+      Ini.VocalsVolume := 0;
+    Ini.Save;
+    ScreenSong.StopMusicPreview;
+    ScreenSong.StopVideoPreview;
+    ScreenSong.SongIndex := -1;
+    ScreenSong.ChangeMusic;
+  end
+  else if not (State in [isQueued, isProcessing]) then
+  begin
+    if not QueueInstrumental(Song, ErrorText) then
+      ScreenPopupError.ShowPopup(Language.Translate(ErrorText));
+  end;
+  UpdateInstrumentalButton;
 end;
 
 procedure TScreenSongMenu.OnShow;
@@ -751,6 +818,7 @@ begin
 
       end;
   end;
+  UpdateInstrumentalButton;
   if not Help.SetHelpID(ID) then
     Log.LogWarn('No Entry for Help-ID ' + ID, 'ScreenSongMenu');
 end;
@@ -778,7 +846,7 @@ begin
 
           2: // button 3
             begin
-              //Dummy
+              HandleInstrumental;
             end;
 
           3: // selectslide 1
@@ -964,6 +1032,11 @@ begin
             begin
               ScreenSong.OpenEditor;
               Visible := false;
+            end;
+          7: // button 5
+            begin
+              Visible := true;
+              HandleInstrumental;
             end;
         end;
       end;

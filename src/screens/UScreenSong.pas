@@ -329,6 +329,7 @@ implementation
 
 uses
   UAudioPlaybackBase,
+  UInstrumental,
   UGraphic,
   UHelp,
   ULog,
@@ -3660,6 +3661,8 @@ end;
 procedure TScreenSong.StartMusicPreview();
 var
   Song: TSong;
+  InstrumentalFile: IPath;
+  InstrumentalError: UTF8String;
   PreviewPos: real;
   PreviewVolume: single;
 begin
@@ -3683,7 +3686,10 @@ begin
     Exit;
 
   PlayMidi := false;
-  if AudioPlayback.Open(Song.Path.Append(Song.Audio),nil) then
+  InstrumentalFile := nil;
+  if InstrumentalState(Song, InstrumentalError) = isReady then
+    InstrumentalFile := Song.Path.Append(Song.Karaoke);
+  if AudioPlayback.Open(Song.Path.Append(Song.Audio), InstrumentalFile) then
   begin
     PreviewOpened := Interaction;
 

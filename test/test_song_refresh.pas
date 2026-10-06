@@ -8,7 +8,7 @@ uses
   cthreads, cwstring,
   {$ENDIF}
   Classes, SysUtils, SDL2, SDL2_image, SQLite3, SQLiteTable3, dglOpenGL,
-  UPath, UPathUtils, ULog, UIni, UCommandLine,
+  UPath, UPathUtils, ULog, UIni, UCommandLine, UInstrumental,
   USong, USongs, UPlaylist, UCatCovers;
 
 var
@@ -16,6 +16,8 @@ var
   OriginalSong: TSong;
   Event: TSDL_Event;
   I, SongIndex: integer;
+  ErrorText: UTF8String;
+  RequestPath: IPath;
 
 procedure Check(Condition: boolean; const MessageText: string);
 begin
@@ -113,6 +115,24 @@ begin
   end;
   Check(CatSongs.SetFilter('Alpha', fltArtist) = 1, 'Search did not include the new song');
   Check(not Songs.Processing, 'Refresh left the catalog busy');
+  if GetEnvironmentVariable('USDX_INSTRUMENTAL_QUEUE') <> '' then
+  begin
+    Check(InstrumentalQueuePath.CreateDirectory(true), 'Could not create test queue');
+    Check(not QueueInstrumental(OriginalSong, ErrorText), 'Missing worker should reject a new request');
+    WriteFile(InstrumentalQueuePath.Append('heartbeat'), 'ready');
+    Check(QueueInstrumental(OriginalSong, ErrorText), 'Native instrumental request failed: ' + ErrorText);
+    RequestPath := InstrumentalJobPath(OriginalSong);
+    Check(RequestPath.IsFile, 'Native request was not published');
+    Check(InstrumentalState(OriginalSong, ErrorText) = isQueued, 'Request should be queued');
+    Check(QueueInstrumental(OriginalSong, ErrorText), 'Repeated request should be idempotent');
+    WriteFile(RequestPath.SetExtension('.status'), '[Job]' + LineEnding + 'Stage=processing' + LineEnding);
+    Check(InstrumentalState(OriginalSong, ErrorText) = isProcessing, 'Processing status not visible');
+    WriteFile(Root.Append('instrumental.m4a'), 'fixture');
+    WriteFile(RequestPath.SetExtension('.status'), '[Job]' + LineEnding + 'Stage=ready' + LineEnding + 'Instrumental=instrumental.m4a' + LineEnding);
+    Check(InstrumentalState(OriginalSong, ErrorText) = isReady, 'Completed instrumental not visible');
+    Check(OriginalSong.Karaoke.Equals('instrumental.m4a'), 'Running catalog did not attach generated instrumental');
+    WriteLn('PASS: native instrumental queue, worker availability, duplicate request, processing status and live attachment');
+  end;
   WriteLn('PASS: empty library, incremental additions, incomplete downloads, Unicode paths, overlapping roots, repeat scans, SDL events, categories, playlists and search');
   // The process owns these temporary fixtures and exits without starting the game.
 end.
