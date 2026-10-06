@@ -19,6 +19,9 @@ var
   ErrorText: UTF8String;
   RequestPath: IPath;
   Progress: TInstrumentalProgress;
+  RequestStream: TBinaryFileStream;
+  RequestIni: TUnicodeMemIniFile;
+  BOM: array[0..2] of byte;
 
 procedure Check(Condition: boolean; const MessageText: string);
 begin
@@ -124,6 +127,21 @@ begin
     Check(QueueInstrumental(OriginalSong, ErrorText), 'Native instrumental request failed: ' + ErrorText);
     RequestPath := InstrumentalJobPath(OriginalSong);
     Check(RequestPath.IsFile, 'Native request was not published');
+    RequestStream := TBinaryFileStream.Create(RequestPath, fmOpenRead);
+    try
+      RequestStream.ReadBuffer(BOM[0], SizeOf(BOM));
+      Check((BOM[0] = $EF) and (BOM[1] = $BB) and (BOM[2] = $BF),
+        'INI writer emitted pointer bytes instead of the UTF-8 BOM');
+    finally
+      RequestStream.Free;
+    end;
+    RequestIni := TUnicodeMemIniFile.Create(RequestPath, true);
+    try
+      Check(RequestIni.ReadString('Song', 'Chart', '') = OriginalSong.Path.Append(OriginalSong.FileName).GetAbsolutePath.ToUTF8,
+        'Native request does not round-trip its Song section');
+    finally
+      RequestIni.Free;
+    end;
     Check(InstrumentalState(OriginalSong, ErrorText) = isQueued, 'Request should be queued');
     Check(QueueInstrumental(OriginalSong, ErrorText), 'Repeated request should be idempotent');
     WriteFile(RequestPath.SetExtension('.status'), '[Job]' + LineEnding + 'Stage=processing' + LineEnding);

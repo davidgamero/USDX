@@ -1413,7 +1413,7 @@ begin
     GetStrings(List);
     Stream := TBinaryFileStream.Create(FFileName, fmCreate);
     if UTF8Encoded then
-      Stream.Write(UTF8_BOM, Length(UTF8_BOM));
+      Stream.WriteBuffer(UTF8_BOM[1], Length(UTF8_BOM));
     List.SaveToStream(Stream);
   finally
     List.Free;
