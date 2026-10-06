@@ -126,6 +126,10 @@ all-deps:
 	  $(MAKE) -C "$$dir" all; \
 	done
 
+.PHONY: test-song-refresh
+test-song-refresh: all-deps
+	$(MAKE) -C $(USDX_SRC_DIR) test-song-refresh
+
 .PHONY: clean
 clean: clean-src clean-deps
 

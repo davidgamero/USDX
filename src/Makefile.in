@@ -195,6 +195,17 @@ endif
 .PHONY: all
 all: build
 
+.PHONY: test-song-refresh
+test-song-refresh: build
+	$(PPC) $(strip $(PFLAGS_ALL)) -Fu$(PCUNIT_DIR) -Fi$(USDX_SRC_DIR) \
+	  -Fu$(USDX_SRC_DIR)/base -Fu$(USDX_SRC_DIR)/menu -Fu$(USDX_SRC_DIR)/screens \
+	  -Fu$(USDX_SRC_DIR)/screens/controllers -Fu$(USDX_SRC_DIR)/screens/views \
+	  -Fu$(USDX_SRC_DIR)/lua -Fu$(USDX_SRC_DIR)/media -Fu$(USDX_SRC_DIR)/macos \
+	  -o$(USDX_BUILD_DIR)/test_song_refresh$(EXEEXT) $(top_srcdir)/test/test_song_refresh.pas
+	@fixture_dir=$$(mktemp -d "$${TMPDIR:-/tmp}/usdx-song-refresh.XXXXXX") || exit 1; \
+	  trap 'rm -rf "$$fixture_dir"' EXIT; \
+	  $(USDX_BUILD_DIR)/test_song_refresh$(EXEEXT) "$$fixture_dir"
+
 # One shot debug build (always rebuild)
 # Note: we cannot set PFLAGS and call build directly, 
 #  as target specific flags are not passed at recursive

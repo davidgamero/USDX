@@ -95,7 +95,7 @@ type
     fDiscoveryDirsScanned: integer;
     fTotalSongsToLoad:   integer;
     fSongsLoaded:        integer;
-    function CollectSongFiles: TPathDynArray;
+    function CollectSongFiles(ShowProgress: boolean = true): TPathDynArray;
     procedure int_LoadSongList;
     procedure DoDirChanged(Sender: TObject);
     procedure LoadSongFromFile(const FilePath: IPath);
@@ -111,7 +111,8 @@ type
     destructor  Destroy(); override;
 
     procedure LoadSongList;     // load all songs
-  procedure FindFilesByExtension(const Dir: IPath; const Ext: IPath; Recursive: Boolean; var Files: TPathDynArray);
+    function ScanForNewSongs: integer;
+    procedure FindFilesByExtension(const Dir: IPath; const Ext: IPath; Recursive: Boolean; var Files: TPathDynArray; ShowProgress: boolean = true);
     procedure Sort(Order: TSortingType);
     property  Processing: boolean read fProcessing;
   end;
@@ -349,7 +350,61 @@ begin
   Resume();
 end;
 
-procedure TSongs.FindFilesByExtension(const Dir: IPath; const Ext: IPath; Recursive: Boolean; var Files: TPathDynArray);
+function TSongs.ScanForNewSongs: integer;
+var
+  KnownFiles: TStringList;
+  SongFiles: TPathDynArray;
+  FileKey: UTF8String;
+  I, PreviousCount: integer;
+  Song, PreviousSong: TSong;
+begin
+  Result := 0;
+  if fProcessing then
+    Exit;
+
+  // Run on the main thread at a screen boundary. Existing song objects remain
+  // valid for scores, previews and playlists; only new files are analysed.
+  KnownFiles := TStringList.Create;
+  PreviousSong := CurrentSong;
+  fProcessing := true;
+  try
+    KnownFiles.CaseSensitive := FileSystem.IsCaseSensitive;
+    KnownFiles.Sorted := true;
+    KnownFiles.Duplicates := dupIgnore;
+    for I := 0 to SongList.Count - 1 do
+    begin
+      Song := TSong(SongList[I]);
+      KnownFiles.Add(Song.Path.Append(Song.FileName).GetAbsolutePath.ToUTF8);
+    end;
+
+    PreviousCount := SongList.Count;
+    SongFiles := CollectSongFiles(false);
+    for I := 0 to High(SongFiles) do
+    begin
+      FileKey := SongFiles[I].GetAbsolutePath.ToUTF8;
+      if KnownFiles.IndexOf(FileKey) >= 0 then
+        Continue;
+      KnownFiles.Add(FileKey);
+      try
+        // Missing audio or an incomplete header is rejected by Analyse. Such
+        // files are retried on the next scan once the download has finished.
+        LoadSongFromFile(SongFiles[I]);
+      except
+        on E: Exception do
+          Log.LogError('Could not refresh song "' + SongFiles[I].ToNative + '": ' + E.Message);
+      end;
+    end;
+    Result := SongList.Count - PreviousCount;
+    if Result > 0 then
+      Log.LogStatus(Format('Added %d new songs (%d total)', [Result, SongList.Count]), 'SongList.Refresh');
+  finally
+    KnownFiles.Free;
+    CurrentSong := PreviousSong;
+    fProcessing := false;
+  end;
+end;
+
+procedure TSongs.FindFilesByExtension(const Dir: IPath; const Ext: IPath; Recursive: Boolean; var Files: TPathDynArray; ShowProgress: boolean);
 var
   DirList: TPathDynArray;
   DirIndex: Integer;
@@ -357,8 +412,10 @@ var
   FileInfo: TFileInfo;
   FileName: IPath;
 begin
-  if Recursive then
+  if Recursive and ShowProgress then
     DirList := CollectDirectories(Dir, true, Self)
+  else if Recursive then
+    DirList := CollectDirectories(Dir, true)
   else
   begin
     SetLength(DirList, 1);
@@ -377,13 +434,14 @@ begin
         Log.LogDebug('Found file ' + DirList[DirIndex].Append(FileName).ToWide, 'TSongs.FindFilesByExtension');
         SetLength(Files, Length(Files) + 1);
         Files[High(Files)] := DirList[DirIndex].Append(FileName);
-        PumpLoadingEvents;
+        if ShowProgress then
+          PumpLoadingEvents;
       end;
     end;
   end;
 end;
 
-function TSongs.CollectSongFiles: TPathDynArray;
+function TSongs.CollectSongFiles(ShowProgress: boolean): TPathDynArray;
 var
   DirIndex, FileIndex, AppendIndex, AdditionalCount, ScanIndex: integer;
   DirList: TPathDynArray;
@@ -400,13 +458,17 @@ begin
 
   Extension := Path('.txt');
   fDiscoveringDirectories := true;
-  UpdateDiscoveryProgress(0, true);
+  if ShowProgress then
+    UpdateDiscoveryProgress(0, true);
 
   for DirIndex := 0 to SongPaths.Count - 1 do
   begin
     DirPath := SongPaths[DirIndex] as IPath;
     Log.LogDebug('Searching directory ' + DirPath.ToWide + ' for txt files', 'TSongs.CollectSongFiles');
-    DirList := CollectDirectories(DirPath, true, Self);
+    if ShowProgress then
+      DirList := CollectDirectories(DirPath, true, Self)
+    else
+      DirList := CollectDirectories(DirPath, true);
     AdditionalCount := Length(DirList);
     if AdditionalCount > 0 then
     begin
@@ -420,12 +482,13 @@ begin
   fDiscoveringDirectories := false;
   fDiscoveryDirCount := Length(AllDirs);
   fDiscoveryDirsScanned := 0;
-  UpdateDiscoveryProgress(0, true);
+  if ShowProgress then
+    UpdateDiscoveryProgress(0, true);
 
   for ScanIndex := 0 to High(AllDirs) do
   begin
     SetLength(DirFiles, 0);
-    FindFilesByExtension(AllDirs[ScanIndex], Extension, false, DirFiles);
+    FindFilesByExtension(AllDirs[ScanIndex], Extension, false, DirFiles, ShowProgress);
     AdditionalCount := Length(DirFiles);
     if AdditionalCount > 0 then
     begin
@@ -436,8 +499,11 @@ begin
     end;
 
     Inc(fDiscoveryDirsScanned);
-    UpdateDiscoveryProgress(Length(Result));
-    PumpLoadingEvents;
+    if ShowProgress then
+    begin
+      UpdateDiscoveryProgress(Length(Result));
+      PumpLoadingEvents;
+    end;
     SetLength(DirFiles, 0);
   end;
 end;
@@ -447,13 +513,16 @@ var
   Song: TSong;
 begin
   Song := TSong.Create(FilePath);
-
-  if Song.Analyse(false, false, false, false, 0, Params.CheckSongs) then
-    SongList.Add(Song)
-  else
-  begin
-    Log.LogError('AnalyseFile failed for "' + FilePath.ToNative + '".');
-    FreeAndNil(Song);
+  try
+    if Song.Analyse(false, false, false, false, 0, Params.CheckSongs) then
+    begin
+      SongList.Add(Song);
+      Song := nil;
+    end
+    else
+      Log.LogError('AnalyseFile failed for "' + FilePath.ToNative + '".');
+  finally
+    Song.Free;
   end;
 end;
 
@@ -690,11 +759,11 @@ begin
   Letter      := 0;
 
   // clear song-list
-  for SongIndex := 0 to Songs.SongList.Count - 1 do
+  for SongIndex := 0 to High(Song) do
   begin
     // free category buttons
     // Note: do NOT delete songs, they are just references to Songs.SongList entries
-    CurSong := TSong(Songs.SongList[SongIndex]);
+    CurSong := Song[SongIndex];
     if (CurSong.Main) then
       CurSong.Free;
   end;
@@ -1019,6 +1088,11 @@ end;
  *)
 function TCatSongs.VisibleSongs: integer;
 begin
+  if Length(Song) = 0 then
+  begin
+    Result := 0;
+    Exit;
+  end;
   Result := VisibleIndex(High(Song));
   if Song[High(Song)].Visible then
     Inc(Result);

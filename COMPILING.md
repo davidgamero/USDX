@@ -47,6 +47,10 @@ Optional libraries:
 - `make` (on macOS: `make macos-standalone-app`)
 - `./game/ultrastardx[.exe]` (on MacOS: `open UltraStarDeluxe.app`)
 
+Run `make test-song-refresh` after configuring to verify incremental song discovery,
+incomplete-download retries, overlapping song paths, event preservation and playlist
+indexes. The test uses temporary fixtures and does not modify your song library.
+
 #### configure flags
 * `--enable-debug`: Outputs warnings and errors from Error.log also to the console, and prints stacktraces when an EAccessViolation occurs.
 * `--with-portaudio`: This is the default.

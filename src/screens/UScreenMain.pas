@@ -166,6 +166,10 @@ begin
         // reset
         Party.bPartyGame := false;
 
+        // Allow the first completed download to unlock an initially empty library.
+        if (Interaction in [0, 1, 2]) and (Songs.SongList.Count = 0) then
+          ScreenSong.Refresh;
+
         //Solo
         if (Interaction = 0) then
         begin

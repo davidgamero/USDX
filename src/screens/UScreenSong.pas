@@ -257,7 +257,7 @@ type
       procedure FadeMessage();
       procedure CloseMessage();
 
-      procedure GenerateThumbnails();
+      procedure GenerateThumbnails(FlushEvents: boolean = true);
       procedure SyncCoversToSongs();
       procedure OnShow; override;
       procedure OnShowFinish; override;
@@ -274,7 +274,7 @@ type
       procedure ShowCatTL(Cat: integer);// Show Cat in Top left
       procedure ShowCatTLCustom(Caption: UTF8String);// Show Custom Text in Top left
       procedure HideCatTL;// Show Cat in Tob left
-      procedure Refresh;//(GiveStats: boolean); //Refresh Song Sorting
+      procedure Refresh; // import new songs and restore the current view
       procedure ChangeMusic;
 
       function FreeListMode: boolean;
@@ -2067,7 +2067,7 @@ begin
   end;
 end;
 
-procedure TScreenSong.GenerateThumbnails();
+procedure TScreenSong.GenerateThumbnails(FlushEvents: boolean);
 var
   I: integer;
   CoverButtonIndex: integer;
@@ -2076,6 +2076,13 @@ var
   Song: TSong;
   Event: TSDL_Event;
 begin
+  for I := 0 to High(Button) do
+    Button[I].Free;
+  SetLength(Button, 0);
+  SetLength(Interactions, 0);
+  SelInteraction := -1;
+  ButtonPos := -1;
+
   if (Length(CatSongs.Song) <= 0) then
     Exit;
 
@@ -2085,8 +2092,9 @@ begin
   // create all buttons
   for I := 0 to High(CatSongs.Song) do
   begin
-    while SDL_PollEvent(@Event) <> 0 do
-      ;
+    if FlushEvents then
+      while SDL_PollEvent(@Event) <> 0 do
+        ;
 
     CoverButton := nil;
 
@@ -2107,6 +2115,7 @@ begin
       CoverFile := Skin.GetTextureFileName('SongCover');
 
     CoverButton.Texture.Name := CoverFile;
+    Song.CoverTex.Free;
     Song.CoverTex := CoverButton.Texture.Clone();
     CoverButton.Selected := False;
   end;
@@ -2889,6 +2898,8 @@ begin
   inherited;
 
   CloseMessage();
+
+  Refresh;
 
   if (TSongMenuMode(Ini.SongMenu) in [smChessboard, smList]) then
   begin
@@ -4263,8 +4274,80 @@ begin
 end;
 
 procedure TScreenSong.Refresh;
+var
+  SelectedSong: TSong;
+  SelectedCategory: UTF8String;
+  PreviousCategory, I, SelectedIndex: integer;
 begin
+  if Songs.ScanForNewSongs = 0 then
+    Exit;
 
+  SelectedSong := nil;
+  SelectedCategory := '';
+  PreviousCategory := CatSongs.CatNumShow;
+  if (Interaction >= 0) and (Interaction < Length(CatSongs.Song)) then
+  begin
+    if CatSongs.Song[Interaction].Main then
+      SelectedCategory := CatSongs.Song[Interaction].Artist
+    else
+      SelectedSong := CatSongs.Song[Interaction];
+  end;
+
+  StopMusicPreview;
+  StopVideoPreview;
+  PreviewOpened := -1;
+  SongIndex := -1;
+  CatSongs.Refresh;
+  GenerateThumbnails(false);
+  PlaylistMan.RefreshSongIndices;
+
+  if (PreviousCategory = -3) and (PlaylistMan.CurPlayList >= 0) then
+    PlaylistMan.SetPlayList(PlaylistMan.CurPlayList)
+  else if PreviousCategory = -2 then
+    ScreenSongJumpto.RefreshResults
+  else if (PreviousCategory >= 0) and Assigned(SelectedSong) then
+  begin
+    CatSongs.ShowCategory(SelectedSong.OrderNum);
+    for I := 0 to High(CatSongs.Song) do
+      if CatSongs.Song[I].Main and (CatSongs.Song[I].OrderNum = SelectedSong.OrderNum) then
+      begin
+        ShowCatTL(I);
+        Break;
+      end;
+  end;
+
+  SelectedIndex := -1;
+  for I := 0 to High(CatSongs.Song) do
+  begin
+    if ((CatSongs.Song[I] = SelectedSong) or
+        (CatSongs.Song[I].Main and (CatSongs.Song[I].Artist = SelectedCategory))) and
+       CatSongs.Song[I].Visible then
+    begin
+      SelectedIndex := I;
+      Break;
+    end;
+  end;
+
+  ResetRandomSongState;
+  ChessboardMinLine := 0;
+  ListMinLine := 0;
+  MainChessboardMinLine := 0;
+  MainListMinLine := 0;
+  if SelectedIndex < 0 then
+    for I := 0 to High(CatSongs.Song) do
+      if CatSongs.Song[I].Visible then
+      begin
+        SelectedIndex := I;
+        Break;
+      end;
+  if SelectedIndex >= 0 then
+    SkipTo(CatSongs.VisibleIndex(SelectedIndex), SelectedIndex, CatSongs.VisibleSongs)
+  else
+  begin
+    Interaction := 0;
+    FixSelected;
+  end;
+  CatSongs.Selected := Interaction;
 end;
 
 //start Medley round

@@ -84,6 +84,7 @@ type
       procedure   SavePlayList(Index: Cardinal);
 
       procedure   RestoreSongOrder;
+      procedure   RefreshSongIndices;
       procedure   SetPlayList(Index: Integer; SongID: Integer = -1);
       procedure   UnsetPlaylist;
 
@@ -739,6 +740,13 @@ begin
       Playlists[P].Items[I].SongID := NewIndex;
     end;
   end;
+end;
+
+procedure TPlayListManager.RefreshSongIndices;
+begin
+  // The catalog has already restored the normal order and inserted new songs.
+  SongOrderDirty := False;
+  ReindexAllPlaylists;
 end;
 
 procedure TPlayListManager.ApplyPlaylistOrder(Index: Cardinal);

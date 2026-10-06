@@ -52,7 +52,7 @@ type
       fSelectType: TSongFilter;
       fVisSongs: integer;
 
-      procedure SetTextFound(Count: Cardinal);
+      procedure SetTextFound(Count: Cardinal; UpdateSelection: boolean = true);
 
       //Visible //Whether the Menu should be Drawn
       //Whether the Menu should be Drawn
@@ -62,6 +62,7 @@ type
 
       function ParseInput(PressedKey: cardinal; CharCode: UCS4Char; PressedDown: boolean): boolean; override;
       procedure OnShow; override;
+      procedure RefreshResults;
       function Draw: boolean; override;
 
       property Visible: boolean read fVisible write SetVisible;
@@ -238,7 +239,12 @@ begin
   Result := inherited Draw;
 end;
 
-procedure TScreenSongJumpto.SetTextFound(Count: cardinal);
+procedure TScreenSongJumpto.RefreshResults;
+begin
+  SetTextFound(CatSongs.SetFilter(Button[0].Text[0].Text, fSelectType), false);
+end;
+
+procedure TScreenSongJumpto.SetTextFound(Count: cardinal; UpdateSelection: boolean);
 begin
   if (Count = 0) then
   begin
@@ -258,6 +264,9 @@ begin
 
   //Set visSongs
   fVisSongs := Count;
+
+  if not UpdateSelection then
+    Exit;
 
   //Fix SongSelection
   if (TSongMenuMode(Ini.SongMenu) = smRoulette) then
