@@ -49,7 +49,7 @@ class QueueTests(unittest.TestCase):
         with self.job.open('w') as f:
             config.write(f)
 
-    def splitter(self, audio, out):
+    def splitter(self, audio, out, progress=None):
         v, i = out / 'v.m4a', out / 'i.m4a'
         v.write_bytes(b'vocals')
         i.write_bytes(b'instrumental')
@@ -69,7 +69,7 @@ class QueueTests(unittest.TestCase):
         self.assertEqual(json.loads(meta.read_text())['instrumental']['status'], 'success')
 
     def test_changed_audio_fails_without_publishing(self):
-        def changed(audio, out):
+        def changed(audio, out, progress=None):
             audio.write_bytes(b'updated source')
             return self.splitter(audio, out)
         with self.assertLogs(worker.LOG, level='ERROR'), patch.object(worker.Separator, 'split', side_effect=changed), patch.object(worker, 'duration', return_value=180):

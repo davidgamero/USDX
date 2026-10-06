@@ -35,6 +35,7 @@ interface
 
 uses
   UDisplay,
+  UInstrumental,
   UFiles,
   UIni,
   UMenu,
@@ -49,8 +50,11 @@ type
       CurMenu: byte; // num of the cur. shown menu
       ID:       String; //for help-system
       LastInstrumentalUpdate: cardinal;
+      InstrumentalProgress: TInstrumentalProgress;
+      InstrumentalTexts: array[0..3] of integer;
       procedure UpdateInstrumentalButton;
       procedure HandleInstrumental;
+      procedure DrawInstrumentalProgress;
     public
       Visible: boolean; // whether the menu should be drawn
 
@@ -99,7 +103,7 @@ implementation
 
 uses
   UDatabase,
-  UInstrumental,
+  Math,
   UGraphic,
   UHelp,
   ULanguage,
@@ -259,6 +263,8 @@ begin
 end;
 
 constructor TScreenSongMenu.Create;
+var
+  I: integer;
 begin
   inherited Create;
 
@@ -300,6 +306,14 @@ begin
   if (Length(Button[4].Text) = 0) then
     AddButtonText(14, 20, 'Button 5');
 
+  for I := 0 to High(InstrumentalTexts) do
+  begin
+    InstrumentalTexts[I] := AddText(0, 0, 240, 22,
+      Theme.SongMenu.TextMenu.Font, Theme.SongMenu.TextMenu.Style,
+      18, 1, 1, 1, 0, '', false, 0, 0.99, false);
+    Text[InstrumentalTexts[I]].Visible := false;
+  end;
+
   Interaction := 0;
 end;
 
@@ -309,15 +323,125 @@ begin
     UpdateInstrumentalButton;
   Renderer.ClearFrameBuffer(CLEAR_DEPTH);
   Result := inherited Draw;
+  DrawInstrumentalProgress;
+end;
+
+procedure TScreenSongMenu.DrawInstrumentalProgress;
+var
+  X, Y, W, FillWidth: single;
+  I: integer;
+  Lines: array[0..3] of UTF8String;
+
+  function TimeText(Seconds: integer; Estimate: boolean = false): UTF8String;
+  begin
+    if Seconds < 0 then
+      Result := Language.Translate('INSTRUMENTAL_ESTIMATING')
+    else
+    begin
+      if Estimate then
+        Seconds := ((Seconds + 4) div 5) * 5;
+      Result := Format('%d:%.2d', [Seconds div 60, Seconds mod 60]);
+      if Estimate then
+        Result := '~' + Result;
+    end;
+  end;
+
+begin
+  if not (CurMenu in [SM_Main, SM_PlayList]) or
+     (InstrumentalProgress.State = isMissing) then
+    Exit;
+  W := Max(260, Theme.SongMenu.Button1.W + 20);
+  X := Max(10, Min(Theme.SongMenu.Button1.X - 10, 790 - W));
+  Y := Min(Theme.SongMenu.Button5.Y + Theme.SongMenu.Button5.H + 12, 450);
+  for I := 0 to 3 do
+    Lines[I] := '';
+  if InstrumentalProgress.State = isStalled then
+  begin
+    Lines[0] := Language.Translate('INSTRUMENTAL_WORKER_STALLED');
+    Lines[1] := Language.Translate('INSTRUMENTAL_PROGRESS_PAUSED');
+  end
+  else if InstrumentalProgress.State = isFailed then
+  begin
+    Lines[0] := Language.Translate('INSTRUMENTAL_FAILED');
+    Lines[1] := InstrumentalProgress.ErrorText;
+    Lines[2] := Language.Translate('INSTRUMENTAL_RETRY');
+  end
+  else if InstrumentalProgress.State = isReady then
+  begin
+    Lines[0] := Language.Translate('INSTRUMENTAL_READY');
+    if InstrumentalProgress.ElapsedSeconds >= 0 then
+      Lines[1] := Format(Language.Translate('INSTRUMENTAL_COMPLETED_TIME'), [TimeText(InstrumentalProgress.ElapsedSeconds)]);
+    Lines[2] := Language.Translate('INSTRUMENTAL_READY_HINT');
+  end
+  else if InstrumentalProgress.State = isQueued then
+  begin
+    Lines[0] := Language.Translate('INSTRUMENTAL_QUEUED');
+    Lines[1] := Format(Language.Translate('INSTRUMENTAL_CONVERSION_TIME'), [TimeText(InstrumentalProgress.ProcessingSeconds, true)]);
+    if InstrumentalProgress.QueuePosition > 0 then
+      Lines[2] := Format(Language.Translate('INSTRUMENTAL_QUEUE_WAIT'), [InstrumentalProgress.QueuePosition, TimeText(InstrumentalProgress.WaitSeconds, true)])
+    else
+      Lines[2] := Language.Translate('INSTRUMENTAL_QUEUE_STARTING');
+  end
+  else
+  begin
+    Lines[0] := Language.Translate('INSTRUMENTAL_STAGE_' + UpperCase(InstrumentalProgress.Stage));
+    if InstrumentalProgress.Stage = 'processing' then
+      Lines[0] := Language.Translate('INSTRUMENTAL_PROCESSING');
+    if InstrumentalProgress.Percent >= 0 then
+      Lines[0] := Lines[0] + Format(' - %d%%', [InstrumentalProgress.Percent]);
+    if InstrumentalProgress.RemainingSeconds >= 0 then
+      Lines[1] := Format(Language.Translate('INSTRUMENTAL_ELAPSED_REMAINING'),
+        [TimeText(InstrumentalProgress.ElapsedSeconds), TimeText(InstrumentalProgress.RemainingSeconds, true)])
+    else
+      Lines[1] := Format(Language.Translate('INSTRUMENTAL_ELAPSED_ESTIMATING'), [TimeText(InstrumentalProgress.ElapsedSeconds)]);
+    if InstrumentalProgress.ChunksTotal > 0 then
+      Lines[2] := Format(Language.Translate('INSTRUMENTAL_CHUNKS'),
+        [InstrumentalProgress.ChunksDone, InstrumentalProgress.ChunksTotal]);
+  end;
+  if InstrumentalProgress.State in [isQueued, isProcessing] then
+  begin
+    Lines[3] := Format(Language.Translate('INSTRUMENTAL_WAITING_COUNT'), [InstrumentalProgress.JobsWaiting]);
+    if InstrumentalProgress.Confidence = 'learning' then
+      Lines[3] := Lines[3] + ' | ' + Language.Translate('INSTRUMENTAL_LEARNING');
+  end;
+
+  Renderer.ClearFrameBuffer(CLEAR_DEPTH);
+  Renderer.DrawQuad(X, Y, 0.98, W, 130, 0.04, 0.06, 0.12, 0.95);
+  Renderer.DrawQuad(X + 10, Y + 38, 0.99, W - 20, 6, 0.2, 0.25, 0.3, 1);
+  if not (InstrumentalProgress.State in [isStalled, isFailed]) then
+  begin
+    if InstrumentalProgress.Percent >= 0 then
+    begin
+      FillWidth := (W - 20) * EnsureRange(InstrumentalProgress.Percent, 0, 100) / 100;
+      Renderer.DrawQuad(X + 10, Y + 38, 0.99, FillWidth, 6, 0.25, 0.75, 1, 1);
+    end
+    else
+      Renderer.DrawQuad(X + 10 + (W - 60) * (SDL_GetTicks mod 2000) / 2000,
+        Y + 38, 0.99, 40, 6, 0.25, 0.75, 1, 1);
+  end;
+  for I := 0 to 3 do
+  begin
+    Text[InstrumentalTexts[I]].X := X + 10;
+    Text[InstrumentalTexts[I]].Y := Y + 8 + I * 25;
+    if I > 0 then
+      Text[InstrumentalTexts[I]].Y := Text[InstrumentalTexts[I]].Y + 16;
+    Text[InstrumentalTexts[I]].W := W - 20;
+    Text[InstrumentalTexts[I]].Size := 18;
+    Text[InstrumentalTexts[I]].Text := Lines[I];
+    Text[InstrumentalTexts[I]].Visible := true;
+    Text[InstrumentalTexts[I]].Draw;
+    Text[InstrumentalTexts[I]].Visible := false;
+  end;
 end;
 
 procedure TScreenSongMenu.UpdateInstrumentalButton;
 var
   ButtonIndex: integer;
-  ErrorText, Caption: UTF8String;
+  Caption: UTF8String;
   State: TInstrumentalState;
 begin
   LastInstrumentalUpdate := SDL_GetTicks;
+  InstrumentalProgress.State := isMissing;
   if CurMenu = SM_Main then
     ButtonIndex := 2
   else if CurMenu = SM_PlayList then
@@ -327,11 +451,17 @@ begin
   if (ScreenSong.Interaction < 0) or (ScreenSong.Interaction > High(CatSongs.Song)) then
     Exit;
   Button[ButtonIndex].Visible := not CatSongs.Song[ScreenSong.Interaction].Main;
-  State := InstrumentalState(CatSongs.Song[ScreenSong.Interaction], ErrorText);
+  InstrumentalProgress := ReadInstrumentalProgress(CatSongs.Song[ScreenSong.Interaction]);
+  State := InstrumentalProgress.State;
   case State of
     isQueued: Caption := 'INSTRUMENTAL_QUEUED';
-    isProcessing: Caption := 'INSTRUMENTAL_PROCESSING';
+    isProcessing:
+      if InstrumentalProgress.Stage = 'processing' then
+        Caption := 'INSTRUMENTAL_PROCESSING'
+      else
+        Caption := 'INSTRUMENTAL_STAGE_' + UpperCase(InstrumentalProgress.Stage);
     isFailed: Caption := 'INSTRUMENTAL_RETRY';
+    isStalled: Caption := 'INSTRUMENTAL_WORKER_STALLED';
     isReady:
       if Ini.VocalsVolume = 0 then
         Caption := 'INSTRUMENTAL_USE_ORIGINAL'

@@ -18,6 +18,7 @@ var
   I, SongIndex: integer;
   ErrorText: UTF8String;
   RequestPath: IPath;
+  Progress: TInstrumentalProgress;
 
 procedure Check(Condition: boolean; const MessageText: string);
 begin
@@ -127,6 +128,19 @@ begin
     Check(QueueInstrumental(OriginalSong, ErrorText), 'Repeated request should be idempotent');
     WriteFile(RequestPath.SetExtension('.status'), '[Job]' + LineEnding + 'Stage=processing' + LineEnding);
     Check(InstrumentalState(OriginalSong, ErrorText) = isProcessing, 'Processing status not visible');
+    WriteFile(RequestPath.SetExtension('.status'), '[Job]' + LineEnding +
+      'Stage=separating' + LineEnding + 'Percent=42' + LineEnding +
+      'ElapsedSeconds=18' + LineEnding + 'EstimatedRemainingSeconds=35' + LineEnding +
+      'ChunksDone=3' + LineEnding + 'ChunksTotal=9' + LineEnding + 'JobsWaiting=2' + LineEnding);
+    Progress := ReadInstrumentalProgress(OriginalSong);
+    Check((Progress.State = isProcessing) and (Progress.Percent = 42) and
+      (Progress.RemainingSeconds = 35) and (Progress.ChunksTotal = 9) and
+      (Progress.JobsWaiting = 2), 'Structured progress/ETA was not read correctly');
+    WriteFile(RequestPath.SetExtension('.status'), '[Job]' + LineEnding +
+      'Stage=encoding' + LineEnding + 'ProgressAgeSeconds=300' + LineEnding +
+      'ProgressTimeoutSeconds=60' + LineEnding);
+    Check(InstrumentalState(OriginalSong, ErrorText) = isStalled, 'Stalled conversion should stop its ETA');
+    Check(not QueueInstrumental(OriginalSong, ErrorText), 'Stalled conversion should not be duplicated');
     WriteFile(Root.Append('instrumental.m4a'), 'fixture');
     WriteFile(RequestPath.SetExtension('.status'), '[Job]' + LineEnding + 'Stage=ready' + LineEnding + 'Instrumental=instrumental.m4a' + LineEnding);
     Check(InstrumentalState(OriginalSong, ErrorText) = isReady, 'Completed instrumental not visible');
