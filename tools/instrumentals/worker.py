@@ -24,6 +24,7 @@ import tempfile
 import time
 
 from estimates import JobProgress, ProgressPool, TimingHistory, profile_key, queue_estimates
+from scheduling import user_initiated_priority
 
 LOG = logging.getLogger("instrumentals")
 MODEL = "htdemucs"
@@ -197,6 +198,12 @@ def synchronize_usdb(chart: Path, instrumental: Path, vocals: Path | None) -> No
 
 
 def process_job(request: Path, separator: Separator, progress: JobProgress | None = None) -> None:
+    # Set QoS before PyTorch initializes its inference threads, on every request.
+    with user_initiated_priority():
+        _process_job(request, separator, progress)
+
+
+def _process_job(request: Path, separator: Separator, progress: JobProgress | None = None) -> None:
     status = request.with_suffix(".status")
     started = time.monotonic()
     if progress is None:

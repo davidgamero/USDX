@@ -12,6 +12,8 @@ import subprocess
 import threading
 import time
 
+from scheduling import PRIORITY_PROFILE
+
 PHASES = ("preparing", "reading", "separating", "encoding", "saving")
 WEIGHTS = {"preparing": (0, 3), "reading": (3, 2), "separating": (5, 90), "encoding": (95, 4), "saving": (99, 0)}
 
@@ -26,6 +28,7 @@ def profile_key(model: str, threads: int) -> str:
         except (OSError, subprocess.SubprocessError):
             pass  # Hardware identification must not prevent worker startup.
     return json.dumps({"model": model, "device": "cpu", "threads": threads,
+                       "scheduling": PRIORITY_PROFILE,
                        "shifts": 1, "overlap": 0.25, "demucs": "4.0.1", "torch": "2.5.1",
                        "os": platform.system(), "arch": platform.machine(),
                        "cpu": cpu, "logical_cpus": os.cpu_count()}, sort_keys=True)

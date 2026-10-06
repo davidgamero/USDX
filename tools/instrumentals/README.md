@@ -34,7 +34,10 @@ responding**, suspending the ETA. Pending jobs survive a restart and are measure
 again on the new attempt.
 
 The optional Python worker performs Demucs separation outside the game process,
-one song at a time, with two CPU threads. The first request downloads the
+one song at a time, with two CPU threads. On macOS the service uses an interactive
+process policy with normal nice priority, and every conversion explicitly requests
+user-initiated thread QoS. This avoids macOS throttling a user-requested conversion
+as discretionary background work. The first request downloads the
 `htdemucs` model. Its idle service does not load the model until a song is queued.
 The original recording and pitch/lyric notes are retained. Generated tracks have
 matching duration and are linked via `#INSTRUMENTAL` / `#VOCALS` headers.

@@ -34,9 +34,9 @@ config = {
     "ProgramArguments": command,
     "RunAtLoad": True,
     "KeepAlive": True,
-    "ProcessType": "Background",
-    "Nice": 10,
-    "LowPriorityIO": True,
+    "ProcessType": "Interactive",
+    "Nice": 0,
+    "LowPriorityIO": False,
     "EnvironmentVariables": {
         "PATH": "/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin",
         "TORCH_HOME": str(queue / "models"),
@@ -56,11 +56,11 @@ else:
     if loaded:
         subprocess.run(["launchctl", "bootout", service], check=True, capture_output=True)
     # launchd may finish removing an old service asynchronously after bootout.
-    for attempt in range(10):
+    for attempt in range(60):
         result = subprocess.run(["launchctl", "bootstrap", domain, str(plist)], capture_output=True, text=True)
         if result.returncode == 0:
             break
-        if attempt == 9:
+        if attempt == 59:
             raise SystemExit(result.stderr.strip())
         time.sleep(0.5)
 print(f"Installed {label}")

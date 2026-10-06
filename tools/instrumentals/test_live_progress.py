@@ -68,6 +68,8 @@ class LiveProgressTests(unittest.TestCase):
                         process.kill()
                         process.wait()
             first, second = (observations[key] for key in ids)
+            if sys.platform == 'darwin':
+                self.assertEqual((root / 'worker.log').read_text().count('Conversion QoS: user-initiated'), 2)
             self.assertTrue(any(s['stage'] == 'separating' and int(s['chunksdone']) >= 3
                                 and int(s['estimatedremainingseconds']) > 0 for s in first))
             self.assertTrue(any(s['stage'] == 'queued' and int(s['estimatedwaitseconds']) > 0 for s in second))
