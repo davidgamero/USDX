@@ -130,6 +130,10 @@ all-deps:
 test-song-refresh: all-deps
 	$(MAKE) -C $(USDX_SRC_DIR) test-song-refresh
 
+.PHONY: test-usdb-client
+test-usdb-client: all-deps
+	$(MAKE) -C $(USDX_SRC_DIR) test-usdb-client
+
 .PHONY: clean
 clean: clean-src clean-deps
 

@@ -70,6 +70,8 @@ uses
   dglOpenGL              in 'lib\dglOpenGL\dglOpenGL.pas',
   UMediaCore_SDL         in 'media\UMediaCore_SDL.pas',
   UInstrumental          in 'base\UInstrumental.pas',
+  UUSDBClient            in 'base\UUSDBClient.pas',
+  UScreenUSDB            in 'screens\UScreenUSDB.pas',
 
   freetype               in 'lib\freetype\freetype.pas',
 

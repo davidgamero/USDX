@@ -322,6 +322,10 @@ begin
       // keyboard/mouse/joystick events
       CheckEvents;
 
+      // Continue submitting requested downloads after the catalog window closes.
+      if Assigned(ScreenUSDB) then
+        ScreenUSDB.UpdateRequests;
+
       // display
       Done := not Display.Draw;
       Renderer.SwapBuffers;

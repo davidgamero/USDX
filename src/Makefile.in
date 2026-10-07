@@ -195,6 +195,15 @@ endif
 .PHONY: all
 all: build
 
+.PHONY: test-usdb-client
+test-usdb-client: build
+	$(PPC) $(strip $(PFLAGS_ALL)) -Fu$(PCUNIT_DIR) -Fi$(USDX_SRC_DIR) \
+	  -Fu$(USDX_SRC_DIR)/base -Fu$(USDX_SRC_DIR)/menu -Fu$(USDX_SRC_DIR)/screens \
+	  -Fu$(USDX_SRC_DIR)/screens/controllers -Fu$(USDX_SRC_DIR)/screens/views \
+	  -Fu$(USDX_SRC_DIR)/lua -Fu$(USDX_SRC_DIR)/media -Fu$(USDX_SRC_DIR)/macos \
+	  -o$(USDX_BUILD_DIR)/test_usdb_client$(EXEEXT) $(top_srcdir)/test/test_usdb_client.pas
+	$(USDX_BUILD_DIR)/test_usdb_client$(EXEEXT)
+
 .PHONY: test-song-refresh
 test-song-refresh: build
 	$(PPC) $(strip $(PFLAGS_ALL)) -Fu$(PCUNIT_DIR) -Fi$(USDX_SRC_DIR) \

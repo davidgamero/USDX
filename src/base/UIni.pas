@@ -190,6 +190,7 @@ type
       AudioVolume:    integer;
       VocalsVolume:   integer;
       SfxVolume:      integer;
+      SongNavigationSound: integer;
       BackgroundMusicVolume: integer;
 
       SyncTo: integer;
@@ -409,6 +410,7 @@ const
   IAudioInputBufferSizeVals:  array[0..9] of integer     = ( 0,      256,   512 ,  1024 ,  2048 ,  4096 ,  8192 ,  16384 ,  32768 ,  65536 );
 
   // Song Preview
+  ISongNavigationSound:       array[0..1] of UTF8String = ('Off', 'On');
   IPreviewVolume:             array[0..12] of UTF8String = ('Off', '3%', '5%', '10%', '20%', '30%', '40%', '50%', '60%', '70%', '80%', '90%', '100%');
   IPreviewVolumeVals:         array[0..12] of single     = ( 0,  0.03,  0.05,  0.10,  0.20,  0.30,  0.40,  0.50,  0.60,  0.70,  0.80,  0.90,   1.00  );
 
@@ -523,6 +525,7 @@ var
   ISyncToTranslated:           array[0..2] of UTF8String  = ('Music', 'Lyrics', 'Off');
 
   // Song Preview
+  ISongNavigationSoundTranslated: array[0..1] of UTF8String = ('Off', 'On');
   IPreviewVolumeTranslated:    array[0..12] of UTF8String = ('Off', '3%', '5%', '10%', '20%', '30%', '40%', '50%', '60%', '70%', '80%', '90%', '100%');
 
   IAudioOutputBufferSizeTranslated: array[0..9] of UTF8String  = ('Auto', '256', '512', '1024', '2048', '4096', '8192', '16384', '32768', '65536');
@@ -943,6 +946,8 @@ begin
   IAudioInputBufferSizeTranslated[9]  := '65536';
 
   // Song Preview
+  ISongNavigationSoundTranslated[0] := ULanguage.Language.Translate('OPTION_VALUE_OFF');
+  ISongNavigationSoundTranslated[1] := ULanguage.Language.Translate('OPTION_VALUE_ON');
   IPreviewVolumeTranslated[0]         := ULanguage.Language.Translate('OPTION_VALUE_OFF');
   IPreviewVolumeTranslated[1]         := '3%';
   IPreviewVolumeTranslated[2]         := '5%';
@@ -1640,6 +1645,7 @@ begin
   AudioVolume  := ReadVolumePercent('Sound', 'AudioVolume', 100);
   VocalsVolume := ReadVolumePercent('Sound', 'VocalsVolume', 100);
   SfxVolume    := ReadVolumePercent('Sound', 'SfxVolume', 100);
+  SongNavigationSound := ReadArrayIndex(ISongNavigationSound, IniFile, 'Sound', 'SongNavigationSound', 1);
   PreviewVolume := ReadVolumePercent('Sound', 'PreviewVolume', 30);
   BackgroundMusicVolume := ReadVolumePercent('Sound', 'BackgroundMusicVolume', 40);
 
@@ -1971,6 +1977,7 @@ begin
     IniFile.WriteInteger('Sound', 'AudioVolume', AudioVolume);
     IniFile.WriteInteger('Sound', 'VocalsVolume', VocalsVolume);
     IniFile.WriteInteger('Sound', 'SfxVolume', SfxVolume);
+    IniFile.WriteString('Sound', 'SongNavigationSound', ISongNavigationSound[SongNavigationSound]);
     IniFile.WriteInteger('Sound', 'BackgroundMusicVolume', BackgroundMusicVolume);
     IniFile.WriteInteger('Sound', 'PreviewVolume', PreviewVolume);
 

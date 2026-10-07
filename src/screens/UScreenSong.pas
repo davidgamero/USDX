@@ -276,6 +276,7 @@ type
       procedure HideCatTL;// Show Cat in Tob left
       procedure Refresh; // import new songs and restore the current view
       procedure ChangeMusic;
+      procedure PlayNavigationSound;
 
       function FreeListMode: boolean;
 
@@ -491,7 +492,7 @@ begin
     begin
       if (TSongMenuMode(Ini.SongMenu) <> smList) then
       begin
-        AudioPlayback.PlaySound(SoundLib.Change);
+        PlayNavigationSound;
         SelectNext(false);
         SetScrollRefresh;
       end
@@ -529,7 +530,7 @@ begin
     begin
       if (TSongMenuMode(Ini.SongMenu) <> smList) then
       begin
-        AudioPlayback.PlaySound(SoundLib.Change);
+        PlayNavigationSound;
         SelectPrev;
         SetScrollRefresh;
       end
@@ -581,7 +582,7 @@ begin
           FixSelected;
 
           //Play Music:
-          AudioPlayback.PlaySound(SoundLib.Change);
+          PlayNavigationSound;
         end;
         //Cat Change Hack End}
       end
@@ -647,7 +648,7 @@ begin
           FixSelected;
 
           //Play Music:
-          AudioPlayback.PlaySound(SoundLib.Change);
+          PlayNavigationSound;
         end;
         //Cat Change Hack End}
       end
@@ -693,7 +694,12 @@ begin
   VS := CatSongs.VisibleSongs;
 
   //Song Screen Extensions (Jumpto + Menu)
-  if (ScreenSongMenu.Visible) then
+  if ScreenUSDB.Visible then
+  begin
+    Result := ScreenUSDB.ParseInput(PressedKey, CharCode, PressedDown);
+    Exit;
+  end
+  else if (ScreenSongMenu.Visible) then
   begin
     Result := ScreenSongMenu.ParseInput(PressedKey, CharCode, PressedDown);
     Exit;
@@ -709,6 +715,12 @@ begin
 
     SDL_ModState := SDL_GetModState and (KMOD_LSHIFT + KMOD_RSHIFT
     + KMOD_LCTRL + KMOD_RCTRL + KMOD_LALT  + KMOD_RALT);
+
+    if (PressedKey = SDLK_U) and (SDL_ModState = 0) and FreeListMode and not MakeMedley then
+    begin
+      ScreenUSDB.ShowBrowser;
+      Exit;
+    end;
 
     //Jump to Artist/Title
     if ((SDL_ModState and KMOD_LALT <> 0) and (FreeListMode)) then
@@ -736,7 +748,7 @@ begin
               begin
                 SkipTo(CatSongs.VisibleIndex((I + Interaction) mod I2), (I + Interaction) mod I2, VS);
 
-                AudioPlayback.PlaySound(SoundLib.Change);
+                PlayNavigationSound;
 
                 SetScrollRefresh;
                 //Break and Exit
@@ -771,7 +783,7 @@ begin
               begin
                 SkipTo(CatSongs.VisibleIndex((I + Interaction) mod I2), (I + Interaction) mod I2, VS);
 
-                AudioPlayback.PlaySound(SoundLib.Change);
+                PlayNavigationSound;
 
                 SetScrollRefresh;
 
@@ -801,7 +813,7 @@ begin
                (UCS4UpperCase(UTF8ToUCS4String(TempStr)[0]) <> UpperLetter) then
             begin
               SkipTo(CatSongs.VisibleIndex((I + Interaction) mod I2), (I + Interaction) mod I2, VS);
-              AudioPlayback.PlaySound(SoundLib.Change);
+              PlayNavigationSound;
               SetScrollRefresh;
               Exit;
             end;
@@ -819,7 +831,7 @@ begin
                (UCS4UpperCase(UTF8ToUCS4String(TempStr)[0]) <> UpperLetter) then
             begin
               SkipTo(CatSongs.VisibleIndex((I + Interaction) mod I2), (I + Interaction) mod I2, VS);
-              AudioPlayback.PlaySound(SoundLib.Change);
+              PlayNavigationSound;
               SetScrollRefresh;
               Exit;
             end;
@@ -1062,7 +1074,7 @@ begin
                 Inc(NextRandomSongIdx);
               end
             end;
-            AudioPlayback.PlaySound(SoundLib.Change);
+            PlayNavigationSound;
 
             SetScrollRefresh;
           end;
@@ -1447,6 +1459,11 @@ end;
 
 function TScreenSong.ParseMouse(MouseButton: integer; BtnDown: boolean; X, Y: integer): boolean;
 begin
+  if ScreenUSDB.Visible then
+  begin
+    Result := ScreenUSDB.ParseMouse(MouseButton, BtnDown, X, Y);
+    Exit;
+  end;
 
   // transfer mousecords to the 800x600 raster we use to draw
   X := Round((X / (ScreenW / Screens)) * RenderW);
@@ -3127,7 +3144,9 @@ end;
 procedure TScreenSong.DrawExtensions;
 begin
   //Draw Song Menu
-  if (ScreenSongMenu.Visible) then
+  if ScreenUSDB.Visible then
+    ScreenUSDB.Draw
+  else if (ScreenSongMenu.Visible) then
   begin
     ScreenSongMenu.Draw;
   end
@@ -3518,7 +3537,7 @@ begin
 
   if (SDL_GetTicks - LastChangeSoundTime >= CHANGE_SOUND_THROTTLE_MS) then
   begin
-    AudioPlayback.PlaySound(SoundLib.Change);
+    PlayNavigationSound;
     LastChangeSoundTime := SDL_GetTicks;
   end;
 
@@ -3584,7 +3603,7 @@ begin
 
   if (SDL_GetTicks - LastChangeSoundTime >= CHANGE_SOUND_THROTTLE_MS) then
   begin
-    AudioPlayback.PlaySound(SoundLib.Change);
+    PlayNavigationSound;
     LastChangeSoundTime := SDL_GetTicks;
   end;
 
@@ -3636,7 +3655,7 @@ end;
 
 procedure TScreenSong.SelectNextListRow;
 begin
-  AudioPlayback.PlaySound(SoundLib.Change);
+  PlayNavigationSound;
   SelectNext;
 
   if (not Button[Interaction].Visible) then
@@ -3648,7 +3667,7 @@ end;
 
 procedure TScreenSong.SelectPrevListRow;
 begin
-  AudioPlayback.PlaySound(SoundLib.Change);
+  PlayNavigationSound;
   SelectPrev;
 
   if (not Button[Interaction].Visible) then
@@ -3771,6 +3790,12 @@ begin
     fCurrentVideo.Stop();
     fCurrentVideo := nil;
   end;
+end;
+
+procedure TScreenSong.PlayNavigationSound;
+begin
+  if Ini.SongNavigationSound = 1 then
+    AudioPlayback.PlaySound(SoundLib.Change);
 end;
 
 // Changes previewed song
@@ -4039,7 +4064,7 @@ begin
         end;
   end;
 
-  AudioPlayback.PlaySound(SoundLib.Change);
+  PlayNavigationSound;
   SetScroll;
 end;
 

@@ -88,10 +88,21 @@ function TScreenMain.ParseInput(PressedKey: Cardinal; CharCode: UCS4Char;
 begin
   Result := true;
 
+  if ScreenUSDB.Visible then
+  begin
+    Result := ScreenUSDB.ParseInput(PressedKey, CharCode, PressedDown);
+    Exit;
+  end;
+
   if (PressedDown) then
   begin // Key Down
         // check normal keys
     case PressedKey of
+      SDLK_U:
+        begin
+          ScreenUSDB.ShowBrowser(true);
+          Exit;
+        end;
       SDLK_S: begin
         FadeTo(@ScreenName, SoundLib.Start);
         Exit;
@@ -271,6 +282,11 @@ end;
 
 function TScreenMain.ParseMouse(MouseButton: integer; BtnDown: boolean; X, Y: integer): boolean;
 begin
+  if ScreenUSDB.Visible then
+  begin
+    Result := ScreenUSDB.ParseMouse(MouseButton, BtnDown, X, Y);
+    Exit;
+  end;
   // default mouse behaviour
   Result := inherited ParseMouse(MouseButton, BtnDown, X, Y);
 end;
@@ -326,6 +342,8 @@ end;
 function TScreenMain.Draw: boolean;
 begin
   Result := inherited Draw;
+  if ScreenUSDB.Visible then
+    ScreenUSDB.Draw;
 
   if not ScreenPopupError.Visible then
   begin

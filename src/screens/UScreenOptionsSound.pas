@@ -108,6 +108,7 @@ type
     iAudioVolumeSlide,
     iVocalsVolumeSlide,
     iSfxVolumeSlide,
+    iSongNavigationSoundSlide,
     iPreviewVolumeSlide,
     iPreviewFadingSlide,
     iBackButton
@@ -229,6 +230,7 @@ begin
   AudioVolumeSelectId := AddVolumeSlider('SING_OPTIONS_SOUND_AUDIOVOLUME', Ini.AudioVolume);
   VocalsVolumeSelectId := AddVolumeSlider('SING_OPTIONS_SOUND_VOCALSVOLUME', Ini.VocalsVolume);
   SfxVolumeSelectId := AddVolumeSlider('SING_OPTIONS_SOUND_SFXVOLUME', Ini.SfxVolume);
+  AddSelectSlide('SING_OPTIONS_SOUND_SONG_NAVIGATION', Ini.SongNavigationSound, ISongNavigationSoundTranslated);
   PreviewVolumeSelectId := AddVolumeSlider('SING_OPTIONS_SOUND_PREVIEWVOLUME', Ini.PreviewVolume);
   AddSelectSlide('SING_OPTIONS_SOUND_PREVIEWFADING', Ini.PreviewFading, IPreviewFadingTranslated);
   SyncVolumeSlidersFromIni;

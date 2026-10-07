@@ -207,7 +207,7 @@ begin
           end
           else
           begin
-            AudioPlayback.PlaySound(SoundLib.Change);
+            ScreenSong.PlayNavigationSound;
             ScreenSong.SelectNext;
             ScreenSong.SetScrollRefresh;
           end;
@@ -222,7 +222,7 @@ begin
           end
           else
           begin
-            AudioPlayback.PlaySound(SoundLib.Change);
+            ScreenSong.PlayNavigationSound;
             ScreenSong.SelectPrev;
             ScreenSong.SetScrollRefresh;
           end;
@@ -566,6 +566,8 @@ begin
         Button[0].Text[0].Text := Language.Translate('SONG_MENU_SONG');
         Button[1].Text[0].Text := Language.Translate('SONG_MENU_MEDLEY');
         Button[3].Text[0].Text := Language.Translate('SONG_MENU_REFRESH_SCORES');
+        Button[4].Visible := ScreenSong.FreeListMode and not ScreenSong.MakeMedley;
+        Button[4].Text[0].Text := Language.Translate('USDB_BROWSER_TITLE');
       end;
     SM_Song:
       begin
@@ -1000,6 +1002,11 @@ begin
               MenuShow(SM_Refresh_Scores);
               ScreenSong.StopMusicPreview();
               ScreenSong.StopVideoPreview();
+            end;
+          7: // button 5
+            begin
+              Visible := false;
+              ScreenUSDB.ShowBrowser;
             end;
           end;
       end;
